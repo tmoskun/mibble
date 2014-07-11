@@ -411,6 +411,31 @@ public class MibLoader {
         return null;
     }
 
+        public URL getURL( Mib m )
+        {
+                URL url = null;
+                File file = m.getFile();
+                if ( (file != null) && file.exists() ) {
+                        try {
+                                url = file.toURI().toURL();
+                        } catch (java.net.MalformedURLException badURL ) {
+                                badURL.printStackTrace();
+                        }
+                }
+
+                if ( url == null ) {
+                        String name = m.getName();
+                        ClassLoader        loader = getClass().getClassLoader();
+                        MibDirectoryCache  cache;
+
+                        java.util.Iterator resItr = resources.iterator();
+                        while ( (url == null) && resItr.hasNext() ) {
+                                url = loader.getResource(resItr.next() + "/" + name);
+                        }
+                }
+                return url;
+        }
+
     /**
      * Returns a map of all MIB names and MIB files. If no MIB files
      * have been loaded an empty map will be returned.
@@ -916,6 +941,10 @@ public class MibLoader {
          */
         public File getFile() {
             return file;
+        }
+
+        public URL getURL() {
+                return url;
         }
 
         /**

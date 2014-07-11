@@ -23,8 +23,18 @@ package net.percederberg.mibble;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.prefs.Preferences;
 
 import javax.swing.UIManager;
@@ -191,6 +201,24 @@ public class MibbleBrowser {
         return buildInfo;
     }
 
+    public Mib getMib(String src) {
+        MibTreeBuilder  mb = MibTreeBuilder.getInstance();
+        File  file = new File(src);
+        Mib   mib = null;
+        if (file.exists()) {
+                mib = loader.getMib(file);
+        }
+        if ( mib == null ) {
+                mib = loader.getMib(src);
+        }
+        return mib;
+    }
+
+    public URL getURL( Mib m )
+    {
+         return loader.getURL( m );
+    }
+
     /**
      * Loads MIB file or URL.
      *
@@ -252,6 +280,59 @@ public class MibbleBrowser {
         removeFilePrefs();
         loader.unloadAll();
         MibTreeBuilder.getInstance().unloadAllMibs();
+    }
+
+    /**
+    * Returns all MIBs found in the resources.
+    *
+    * @return a map containing the MIBs from the resources.  Each key of the Map is a 'resourceDir', and each value is a List of MIB files in that directory.
+    */
+    public Map getResourceMIBs()
+    {
+        ClassLoader classloader = getClass().getClassLoader();
+        String[] dirs = loader.getResourceDirs();
+        URL url;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile( ".*file:(.*\\.jar)!/?(.+).*" ).matcher("");
+        Map mibPaths = new HashMap(4);
+        String mibDir;
+        List mibFiles;
+        Enumeration mibEnum;
+        JarFile jarFile;
+        JarEntry jarEntry;
+
+        for ( int i = 0; i < dirs.length; i++ ) {
+                url = classloader.getResource( dirs[i] );
+                if ( url != null ) {
+                        m.reset(url.getFile());
+                        if ( m.matches() && (m.groupCount() > 1) ) {
+                                try {
+                                        jarFile = new JarFile( m.group(1) );
+                                        mibFiles = new LinkedList();
+                                        mibDir = m.group(2);
+                                        mibPaths.put( mibDir, mibFiles );
+                                        mibEnum = jarFile.entries();
+                                        while ( mibEnum.hasMoreElements() ) {
+                                                jarEntry = (JarEntry) mibEnum.nextElement();
+                                                if ( jarEntry.getName().startsWith( mibDir ) && !jarEntry.isDirectory() ) {
+                                                        mibFiles.add( jarEntry.getName() );
+                                                }
+                                        }
+                                } catch (IOException ioerr) {
+                                        printInternalError(ioerr);
+                                }
+                        }
+                }
+        }
+
+        //Each key in mibPaths is now a 'resourceDir' and its value is a list of MIBS the resourceDir contains.
+
+        //sort the lists
+        Iterator mibLists = mibPaths.values().iterator();
+        while ( mibLists.hasNext() ) {
+                Collections.sort( (List) mibLists.next() );
+        }
+
+        return mibPaths;
     }
 
     /**

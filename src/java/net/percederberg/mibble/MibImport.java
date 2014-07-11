@@ -21,6 +21,8 @@
 
 package net.percederberg.mibble;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -28,6 +30,7 @@ import java.util.List;
  * and a number of symbols in it.
  *
  * @author   Per Cederberg, <per at percederberg dot net>
+ * @author   tmoskun (modifications, recursive loading of MIBs)
  * @version  2.10
  * @since    2.6
  */
@@ -80,7 +83,7 @@ public class MibImport implements MibContext {
 
     /**
      * Initializes the MIB import. This will resolve all referenced
-     * symbols.  This method will be called by the MIB loader.
+     * symbols, recurcively.  This method will be called by the MIB loader.
      *
      * @param log            the MIB loader log
      *
@@ -88,17 +91,27 @@ public class MibImport implements MibContext {
      *             initialization
      */
     public void initialize(MibLoaderLog log) throws MibException {
+        String  message;
+
         mib = loader.getMib(name);
         if (mib == null) {
-            String msg = "couldn't find referenced MIB '" + name + "'";
-            throw new MibException(location, msg);
+            message = "couldn't find referenced MIB '" + name + "'";
+            throw new MibException(location, message);
         }
         if (symbols != null) {
             for (int i = 0; i < symbols.size(); i++) {
                 if (mib.getSymbol(symbols.get(i).toString()) == null) {
-                    String msg = "couldn't find imported symbol '" +
-                                 symbols.get(i) + "' in MIB '" + name + "'";
-                    throw new MibException(location, msg);
+                        Collection imports = mib.getAllImports();
+                        if(imports.isEmpty()) {
+                            message = "couldn't find imported symbol '" +
+                                      symbols.get(i) + "' in MIB '" + name + "'";
+                            throw new MibException(location, message);
+                        } else {
+                                ArrayList<MibImport> imps = (ArrayList<MibImport>) imports;
+                                for(MibImport imp: imps) {
+                                        imp.initialize(log);
+                                }
+                        }
                 }
             }
         }
